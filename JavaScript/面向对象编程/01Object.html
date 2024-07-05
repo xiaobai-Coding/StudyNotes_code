@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Object</title>
+</head>
+<body>
+  <script>
+    // Object 对象是所有对象的父级对象，所创建的对象都继承自 Object
+    var o = {}
+    var o = new Object() 
+    // 以上两者声明了一个对象他们是等价的 不管是用对象字面量去声明还是利用 Object 构造函数
+    // 对象的方法和属性 valueOf() toString()
+    console.log(o.valueOf()) // 返回对象本身
+    console.log(o.toString()) // 返回对象的字符串形式
+    console.log(o.constructor) // 返回构造函数的引用
+  </script>
+</body>
+</html>

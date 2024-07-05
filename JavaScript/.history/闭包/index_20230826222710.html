@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script>
+    // 闭包的代码
+    function foo1(){
+      var a = 2;
+      function bar1(){
+        console.log(a)
+      }
+      return bar1
+    }
+    var baz1 = foo1()
+    baz1()
+    // 当一个函数在别处被调用是也可以观察到闭包
+    function foo2(){
+      var a = 3;
+      function baz2(){
+        console.log(a)
+      }
+      bar2(baz2)
+    }
+    function bar2(fn){
+      fn()
+    }
+    bar2()
+  </script>
+</body>
+</html>

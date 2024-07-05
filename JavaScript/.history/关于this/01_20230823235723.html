@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script>
+    // 关于this的两个误解
+    // 1.指向函数自身
+    function foo(num){
+      console.log('foo:' + num)
+      this.count ++;
+    }
+    function foo(num){
+      console.log('foo:' + num)
+      foo.count ++;
+    }
+    function foo3(num){
+      console.log('foo:' + num)
+      data.count ++;
+    }
+    var data = {
+      count: 0
+    }
+    foo.count = 0;
+    for(let i = 0; i<10; i++){
+      if(i>5){
+        foo3(i)
+      }
+    }
+    function foo5(num){
+      console.log('foo:' + num)
+      num ++;
+    }
+    var num = 0;
+    console.log(foo.count)
+    console.log(data.count)
+    console.log(num)
+    /* ------------------------------ */
+    // htis默认指向全局window
+    function foo2(){
+      console.log(this)
+    }
+    foo2()
+    // 2.指向他的作用域。在任何情况下this都不能指向函数的词法作用域
+    function foo4(){
+      var a = 2;
+      this.bar()
+    }
+    function bar(){
+      console.log(this.a)
+    }
+    foo4()
+  </script>
+</body>
+</html>

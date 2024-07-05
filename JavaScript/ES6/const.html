@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script>
+    const f = 0
+    console.log(f)
+    // f = 1 // TypeError: Assignment to constant variable.
+    console.log(f)
+
+    // const g; // SyntaxError: Missing initializer in const declaration
+    // console.log(g)
+
+   {
+    // console.log(h)
+    const h = 1
+   }
+
+   const i = 1;
+
+   {
+    const i = 3;
+    console.log(i)
+   }
+   console.log(i)
+
+   function f1() {
+    const n = 5;
+    if (true) {
+      const n = 10;
+      console.log(n) // 10
+    }
+    console.log(n); // 5
+  }
+  f1()
+
+  {
+    // console.log(e) // ReferenceError: Cannot access 'e' before initialization
+    const e = 0
+    console.log(e) // 0
+  }
+
+const foo = {};
+// 为 foo 添加一个属性，可以成功
+foo.prop = 123;
+console.log(foo.prop) // 123
+// 将 foo 指向另一个对象，就会报错
+foo = {}; // TypeError: Assignment to constant variable.
+</script>
+</body>
+</html>

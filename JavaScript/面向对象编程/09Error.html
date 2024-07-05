@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Error</title>
+</head>
+<body>
+  <script>
+    try{
+      isFINS()
+    }catch(e){
+      console.log(e.name +':'+ e.message)
+    }
+    function F(){
+      function c(){
+        return this
+      }
+      return c()
+    }
+    var o  = new F();
+    console.log(o)
+    function C(){
+      this.a = 1;
+      return false
+    }
+    console.log(typeof new C())
+    var c1 = [1,2,[1,2]]
+    console.log(c1.sort())
+    console.log(c1.join('--'))
+    console.log(c1)
+    // 构造函数
+    function MyString(name){
+      this.name = name
+      return this.name
+    }
+    const str = new MyString('string')
+    console.log(str.name)
+    console.log(str.name.length)
+    console.log(str.name[0])
+    console.log(str.name.charAt('t'))
+  </script>
+</body>
+</html>

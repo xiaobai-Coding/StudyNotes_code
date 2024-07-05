@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Array</title>
+</head>
+<body>
+  <script>
+    var arr = [1,2,3,4,5,'test']
+    console.log(arr.push('f'))
+    console.log(arr.pop()) // 返回被删除的最后一个元素
+    console.log(arr.slice(0,2)) // 移除指定的数组元素，不会改变原来的数组
+    console.log(arr) // [1,2,3,4,5,'test']
+    console.log(arr.splice(0,2)) // 移除指定的数组元素，会改变原数组
+    console.log(arr)
+    var arr1 = new Array(4)
+    console.log(arr1.constructor)
+  </script>
+</body>
+</html>

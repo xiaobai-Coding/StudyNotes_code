@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>call和apply</title>
+</head>
+<body>
+  <script>
+    // call() 和 apply() 可以改变this的指向
+    // call()
+    var obj1 = {
+      name: '小米',
+      sayName: function(val){
+        return 'name is ' + val + 'and' + this.name
+
+      }
+    }
+   console.log( obj1.sayName('张三'))
+   var obj2 = {
+    name: '万达'
+   }
+   
+   console.log(obj1.sayName.call(obj2, '李四'))
+  //  2. apply()
+  console.log(obj1.sayName.apply(obj2,['王六']))
+  // 3.arguments 
+  function f(a,b,c){
+    // var args = [].slice.call(arguments)
+    var args =Array.prototype.slice(arguments)
+    console.log(args.slice())
+  }
+  f(1,2,3)
+  // 4.推断对象类型
+  console.log(Object.prototype.toString.call({}))
+  console.log(Object.prototype.toString.call([]))
+  </script>
+</body>
+</html>

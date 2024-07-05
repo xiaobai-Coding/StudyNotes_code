@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>继承</title>
+</head>
+<body>
+  <script>
+    // 1.原型链
+    function shape(){
+      this.name = 'Shape',
+      this.toString = function(){
+        return this.name
+      }
+    }
+    function TwoDshape(){
+      this.name = '2D shape'
+    }
+    function Triangle(side, height){
+      this.name = 'Triangle',
+      this.side = side,
+      this.height = height,
+      this.getArea = function(){
+        return this.side * this.height / 2
+      }
+    }
+   TwoDshape.prototype = new shape()
+   Triangle.prototype = new TwoDshape()
+   TwoDshape.prototype.constructor = TwoDshape;
+   Triangle.prototype.constructor = Triangle;
+   var my = new Triangle(5, 10)
+   console.log(my.getArea())
+   console.log(my.toString()) // 继承自shape的方法
+   console.log(my.constructor === Triangle)  // true
+   console.log(my instanceof shape) // my对象是shape的实例
+   console.log(my instanceof TwoDshape) // 同时也是TwoDshape的实例
+   console.log(my instanceof Triangle) // 也是Triangle的实例
+   console.log(shape.prototype.isPrototypeOf(my)) // shape是my对象的原型
+   /* 将共享属性迁移到原型中去 */
+   console.log('--------------------------分割线-----------------------------')
+  //  我们可以选择将一些共享的属性添加到原型中去
+  function shap1(){}
+  shap1.prototype.name = 'Shape',
+  shap1.prototype.toString = function(){
+    return this.name
+  }
+  function TwoDshape1(){}
+  TwoDshape1.prototype = new shap1()
+  TwoDshape1.prototype.constructor = TwoDshape1;
+  TwoDshape1.prototype.name = '2D shape';
+  function Triangle2(side, height){
+    this.side = side;
+    this.height = height;
+  }
+  Triangle2.prototype = new TwoDshape1()
+  Triangle2.prototype.constructor = Triangle2
+  Triangle2.prototype.name = 'Triangle2'
+  Triangle2.prototype.getArea = function(){
+        return this.side * this.height / 2
+      }
+   var my1 = new Triangle2(10,20)
+   console.log(my1.getArea())
+   console.log(my1.toString())
+   console.log(my1.hasOwnProperty('name'))
+   console.log(my1 instanceof shap1)
+   console.log(shap1.prototype.isPrototypeOf(my1))
+   console.log('--------------------------分割线-----------------------------')
+   /* 只继承于原型 */
+   function shap2(){}
+  shap2.prototype.name = 'Shape',
+  shap2.prototype.toString = function(){
+    return this.name
+  }
+  function TwoDshape2(){}
+  TwoDshape2.prototype = shap2.prototype
+  TwoDshape2.prototype.constructor = TwoDshape2;
+  TwoDshape2.prototype.name = '2D shape';
+  function Triangle3(side, height){
+    this.side = side;
+    this.height = height;
+  }
+  Triangle3.prototype = TwoDshape2.prototype
+  Triangle3.prototype.constructor = Triangle3
+  Triangle3.prototype.name = 'Triangle3'
+  Triangle3.prototype.getArea = function(){
+        return this.side * this.height / 2
+      }
+   var my2 = new Triangle3(10,20)
+   console.log(my2.name)
+   console.log(my2.getArea())
+   console.log(my2.toString())
+   console.log(my2.hasOwnProperty('name'))
+   console.log(my2 instanceof shap1)
+   console.log(shap1.prototype.isPrototypeOf(my1))
+   var my3 = new Triangle3(10,20)
+   Triangle3.prototype.name = 'Triangle3333'
+   console.log(my3.name)
+   var my4 = new shap2()
+   console.log(my4.name) // Triangle3333 子对象的属性覆盖了父对象的属性
+  /* 临时构造器 */
+  console.log('----------------------临时构造器------------------------')
+ /*  通过原型继承的方式， 父对象会受到子对象的影响，这时候可以创建一个临时构造函数来充当中介的作用，
+  将其原型设置为父构造函数 */
+  function shape3(){}
+  shape3.prototype.name = 'shape3';
+  shape3.prototype.toString = function(){
+    return this.name
+  }
+  function TwoDshape3(){}
+  var F = function(){}
+  F.prototype = shape3.prototype
+  TwoDshape3.prototype = new F()
+  TwoDshape3.prototype.constructor = TwoDshape3;
+  TwoDshape3.prototype.name = 'TwoDshape3'
+  function Triangle4(side, height){
+    this.side = side;
+    this.height = height;
+  }
+  var F = function(){}
+  F.prototype = TwoDshape3.prototype
+  Triangle4.prototype = new F()
+  Triangle4.prototype.constructor = Triangle4;
+  Triangle4.prototype.name = 'Triangle4';
+  Triangle4.prototype.getArea = function(){
+        return this.side * this.height / 2
+      }
+  const s = new Triangle4(10,20)    
+  console.log(s.getArea())
+  console.log(s.name)
+  var s1 = new shape3() // Triangle4
+  console.log(s1.name) // shape3
+  /* 将继承部分封装成函数实现复用 */
+  console.log('--------------------将继承部分封装成函数实现复用-------------------------') 
+  function extend(Child, Parent){
+    var F = function(){};
+    F.prototype = Parent.prototype
+    Child.prototype = new F()
+    Child.prototype.constructor = Child;
+    Child.uber = Parent.prototype
+  }
+  function shape4(){}
+  shape4.prototype.name = 'shape4';
+  shape4.prototype.toString = function(){
+    return this.constructor.uber ?  this.constructor.uber.toString() + ','+ this.name : this.name
+  }
+  function TwoDshape4(){}
+  var F = function(){}
+  extend(TwoDshape4, shape4)
+  TwoDshape4.prototype.name = 'TwoDshape4'
+
+  function Triangle5(side, height){
+    this.side = side;
+    this.height = height;
+  }
+  extend(Triangle5, TwoDshape4)
+  Triangle5.prototype.name = 'Triangle4';
+  Triangle5.prototype.getArea = function(){
+        return this.side * this.height / 2
+      }
+      console.log(new Triangle5().toString())                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+  </script>
+</body>
+</html>

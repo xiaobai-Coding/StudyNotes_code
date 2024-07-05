@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>对象</title>
+</head>
+<body>
+  <script>
+    // 1.定义一个对象
+    var obj = {
+    name: 'geigei',
+    getName: function(){
+        return obj.name || this.name
+    }
+    }
+    console.log(obj.getName)
+    // 构造函数
+    function Fun1(name, age, gender){
+    this.name = name
+    this.age = age
+    this.gender = gender
+    this.getname = function (){
+        return this.name
+    }
+    }
+    const p1 = new Fun1('武松', 18, '男')
+    console.log(p1.name)
+    console.log(p1.getname())
+    console.log(p1 instanceof Fun1)
+    Fun1('宋江', 189, '男')
+    console.log(window.age)
+    // 返回对象的函数
+    function Fun2(a){
+      return {
+        a: a
+      }
+    }
+    const p3 = new Fun2('aaa')
+    console.log(p3.a)
+    // 对象传递
+    var objA = {num: 10}
+    var test = objA;
+    console.log(test.num)
+    test.num = 99
+    console.log(test.num)
+  </script>
+</body>
+</html>

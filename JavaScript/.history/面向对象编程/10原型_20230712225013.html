@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>原型</title>
+</head>
+<body>
+  <script>
+    function F(a,b){
+      this.a = a;
+      this.b = b;
+      this.getinfo = function(a,b){
+        return this.a + this.b
+      }
+    }
+   
+    // 利用函数的原型添加属性和方法
+    F.prototype.s = 9
+    F.prototype.a = function(){
+      return 10
+    }
+    // var mufun = new F(3,3)
+    // console.log(mufun.getinfo())
+    // console.log(F.prototype)
+    // console.log(mufun.s)
+    console.log(F.prototype.s)
+  </script>
+</body>
+</html>

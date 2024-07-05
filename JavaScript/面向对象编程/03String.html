@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>String</title>
+</head>
+<body>
+  <script>
+    /* String对象 */
+    var str1 = new String()
+    console.log(typeof str1)
+    var str2 = 'hello word!'
+    // string的一些方法
+    // 1. indexOf 查找字符串中某个字符首次出现的位置，查到就返回字符串的索引，查不到就返回-1 通常是从前往后查找
+    console.log(str2.indexOf('f'))
+    // 2. lastIndexOf 也是查找字符串 只不过是从后往前查找,但是它返回来的索引还是从前往后的
+    console.log(str2.lastIndexOf('d'))
+    // 3. toLowerCase() toUpperCase() 大小写转换
+    console.log(str2.toLowerCase()) // 转小写
+    console.log(str2.toUpperCase()) // 转大写
+    // 4. charAt 返回指定位置的字符
+    console.log(str2.charAt(3))
+    // 5. slice
+    console.log(str2.slice(1, 3))
+  </script>
+</body>
+</html>

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>原型</title>
+</head>
+<body>
+  <script>
+    function F(a,b){
+      this.a = a;
+      this.b = b;
+      this.getinfo = function(a,b){
+        return this.a + this.b
+      }
+    }
+   
+    // 利用函数的原型添加属性和方法
+    F.prototype.s = 99
+    F.prototype.f2 = function(){
+      return F.prototype.s
+    }
+    var mufun1 = new F(3,3)
+    console.log(mufun1.f2())
+    var mufun2 = new F(3,4)
+    var mufun3 = new F(3,5)
+    // console.log(mufun.getinfo())
+    // console.log(F.prototype)
+    // console.log(mufun.s)
+    // console.log(F.prototype.s)
+  
+    // console.log(mufun1.s)
+    // console.log(mufun2.f2())
+    // console.log(mufun3.f2())
+    // 2.判断一个对象是否是另一个对象的原型
+    var m = {
+      hair: true,
+      feeds: 'banans'
+    }
+    F.prototype = m;
+    var mufun4 = new F(4,6)
+   console.log( m.isPrototypeOf(mufun4))
+   console.log(Object.getPrototypeOf(mufun4))
+  //  3.练习
+  var shape = {
+    type: 0,
+    getType: function(){
+      return this.type
+    }
+  }
+  function Triangle(a, b, c){
+    return a + b + c
+  }
+  Triangle.prototype = shape;
+  const t = new Triangle();
+  Triangle.prototype.getPerimeter = function (){
+    return a + b + c
+  }
+  console.log(t(3, 3, 3))
+  </script>
+</body>
+</html>

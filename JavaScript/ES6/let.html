@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script>
+    {
+      let a = 1
+      console.log(a) // 1
+    }
+    // console.log(a) // ReferenceError: a is not defined
+
+    console.log(b) // undefined
+    var b;
+
+    // console.log(c) // ReferenceError: Cannot access 'c' before initialization
+    let c;
+
+    {
+      let d = 1;
+      // let d = 2;
+      // SyntaxError: Identifier 'd' has already been declared
+    }
+
+  function f1() {
+    let n = 5;
+    if (true) {
+      let n = 10;
+      console.log(n) // 10
+    }
+    console.log(n); // 5
+  }
+  f1()
+
+  var s = 'hello';
+
+for (let i = 0; i < s.length; i++) {
+  console.log(s[i]);
+}
+
+{
+  e = '123'  
+  console.log(e) // ReferenceError: Cannot access 'e' before initialization
+  let e;
+  console.log(e) // undefined
+  e = '456'
+  console.log(e) // '456'
+}
+  </script>
+</body>
+</html>

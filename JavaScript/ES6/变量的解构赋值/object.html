@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script>
+    // let { foo, bar, baz } = { foo: 111, bar: 222, baz: 333 }
+    // console.log(baz) // 333
+    // console.log(foo) // 111
+    // console.log(bar) // 222
+    let { log } = console
+    log(console) // xxxx
+    let {foo: ccc, baz: ddd } = { foo: 111, bar: 222, baz: 333 }
+    console.log(ccc) // 111
+    console.log(ddd) // 333
+
+    let { foo: foo, bar: bar, baz: baz } = { foo: 111, bar: 222, baz: 333 }
+    console.log(baz) // 333
+    console.log(foo) // 111
+    console.log(bar) // 222
+    const obj = {
+      o: {
+        y: 'yyy',
+        p: {
+          x: 'xxx'
+        }
+      }
+    }
+    const { o, o:{ y, p: { x }}} = obj
+    console.log(o) // {"y": "yyy","p": {"x": "xxx"}}
+    console.log(y) // yyy
+    console.log(x) // xxx
+
+    let { name, age, Gender = '男'} = { name: 'xiaobaiCoding', age: 26 , Gender: undefined}
+    console.log(name) // xiaobaiCoding
+    console.log(Gender) // 女
+    console.log(age) // 26
+  </script>
+</body>
+</html>

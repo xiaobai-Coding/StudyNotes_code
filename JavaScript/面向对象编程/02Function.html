@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Function</title>
+</head>
+<body>
+  <script>
+    var f = new Function('a,b','return a+b')
+    console.log(f(1,2))
+    console.log(f.length)
+    console.log(f)
+    console.log(f.prototype)
+    console.log(f.toString())
+    console.log(f.valueOf())
+  </script>
+</body>
+</html>

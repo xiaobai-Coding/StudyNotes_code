@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Date对象</title>
+</head>
+<body>
+  <script>
+    var stats = [0,0,0,0,0,0,0]
+    for(var i = 2023; i<3016; i++){
+      stats[new Date(i, 3, 8).getDay()]++
+    }
+    console.log(stats)
+  </script>
+</body>
+</html>
