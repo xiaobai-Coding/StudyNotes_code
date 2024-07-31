@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <script>
+    class Point{
+      constructor(x, y){
+        this.x = x
+        this.y = y
+      }
+    }
+    class ColorPoint extends Point{
+      constructor(x, y, color){
+        super(x, y)
+        this.color = color
+        console.log(x + y + color)
+      }
+    }
+    
+    const cp = new ColorPoint(1,2, 'blue')
+    cp
+    console.log(cp instanceof Point)
+    console.log(cp instanceof ColorPoint)
+    console.log(Object.getPrototypeOf(ColorPoint === Point))
+  </script>
+</body>
+</html>

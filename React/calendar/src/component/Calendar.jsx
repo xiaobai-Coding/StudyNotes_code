@@ -22,7 +22,7 @@ function Calendar(props){
   const renderDays = () => {
     const days = []
     const daysCount = daysOfMonth(date.getFullYear(), date.getMonth())
-    const firstDays = firstDayOfMonth(date.getFullYear(), date.getMonth())
+    const firstDays = firstDayOfMonth(date.getFullYear(), date.getMonth() )
 
     for(let i = 0; i<firstDays; i++){
       days.push(<div key={`empty-${i}`} className="empty"></div>)
@@ -39,6 +39,7 @@ function Calendar(props){
         days.push(<div key={i} className="day" onClick={()=>handelClick()}>{i}</div>)
       }
     }
+    
     return days
   }
   return (

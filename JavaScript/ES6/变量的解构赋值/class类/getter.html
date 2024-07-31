@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <h1>getter&&setter</h1>
+  <script>
+    class Point{
+      constructor(name) {
+        this.name = name
+      }
+      get prop(){
+        return this.name
+      }
+      set prop(value){
+        return this.name = value
+      }
+    }
+    const p = new Point("张三丰")
+    console.log(p.prop)
+    p.prop = "李隆基"
+    console.log(p.prop)
+  </script>
+</body>
+</html>
