@@ -4,7 +4,7 @@ import classNames from 'classnames';
 import MonthClendar from "./MonthCalendar"
 import Header from "./Header"
 import "./index.scss"
-
+import LocaleContext from './LocaleContext';
 
 
 function Calendar(props){
@@ -15,7 +15,8 @@ function Calendar(props){
     className,
     dateRender,
     dateInnerContent,
-    onChange
+    onChange,
+    locale
   } = props
   const [curValue, setCurValue] = useState(value)
   const [curMonth, setCurMonth] = useState(value)
@@ -39,10 +40,11 @@ function Calendar(props){
     setCurMonth(date)
     onChange(date)
 }
-
-  return <div className={cs} style={style}>
-    <Header curMonth={curMonth} prevMonthHandler={prevMonthHandler} nextMonthHandler={nextMonthHandler} todayHandler={todayHandler} />
-    <MonthClendar {...props} value={curValue} curMonth={curMonth} selectHandler={selectHandler} />
-  </div>
+  return <LocaleContext.Provider value={{ locale: locale || navigator.language}}>
+    <div className={cs} style={style}>
+      <Header curMonth={curMonth} prevMonthHandler={prevMonthHandler} nextMonthHandler={nextMonthHandler} todayHandler={todayHandler} />
+      <MonthClendar {...props} value={curValue} curMonth={curMonth} selectHandler={selectHandler} />
+    </div>
+  </LocaleContext.Provider>
 }
 export default Calendar

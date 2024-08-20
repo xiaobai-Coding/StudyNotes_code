@@ -1,5 +1,7 @@
+import { useContext } from 'react';
+import LocaleContext from './LocaleContext.jsx';
+import allLocales from './locale/index.js';
 import classNames from 'classnames';
-
 function getAllDays(date) {
   const daysInMonth = date.daysInMonth()
   const startDate = date.startOf('month')
@@ -52,7 +54,7 @@ function renderDays(days, dateRender, dateInnerContent, value, selectHandler) {
 }
 
 function MonthClendar(props){
-
+const localeContest = useContext(LocaleContext)
  const { 
   value,
   curMonth,
@@ -60,12 +62,13 @@ function MonthClendar(props){
   dateInnerContent,
   selectHandler
 } = props 
+const CalendarLocale = allLocales[localeContest.locale]
  const allDays = getAllDays(curMonth)
-  const weekList = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+  const weekList = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
   return <div className="calendar-month">
     <div className="calendar-month-week-list">
      {weekList.map(week=>(
-      <div className="calendar-month-week-list-item" key={week}>{week}</div>
+      <div className="calendar-month-week-list-item" key={week}>{CalendarLocale.week[week]}</div>
      ))}
     </div>
     <div className="calendar-month-body">

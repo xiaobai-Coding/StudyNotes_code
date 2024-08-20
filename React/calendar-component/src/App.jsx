@@ -11,6 +11,7 @@ function App() {
       value={ dayjs() } 
       className={'aaa'} 
       style={null} 
+      locale="en-US"
       onChange={(date)=>{
         alert(date.format("YYYY-MM-DD"))
       }}
