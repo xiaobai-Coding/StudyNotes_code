@@ -1,0 +1,20 @@
+.container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  width: 80rem;
+  height: 30rem;
+  margin: auto;
+  padding: 50px;
+}
+.item{
+  width: 300px;
+  background-color: #efefef;
+  display: flex;
+  justify-content: center;
+  /* align-items: center; */
+}
+img {
+  height: 80px;
+  align-self: center;
+}

@@ -1,0 +1,36 @@
+html, body {
+  height: 100%;
+}
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.text {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.header, .footer {
+  height: 80px;
+  background-color: #52526d;
+}
+
+.body {
+  display: flex;
+  flex: 1;
+}
+.body .aside {
+ width: 10rem;
+ background-color: #2ba4bb;
+ margin-right: 10px;
+}
+
+.body .main {
+ flex: 1;
+ background-color: #cacbd4;
+ color: black;
+ }
