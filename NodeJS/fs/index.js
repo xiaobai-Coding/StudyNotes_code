@@ -1,29 +1,39 @@
-import fs from 'fs'
-
-// fs.readFile('./path/index.js', 'utf-8',(err, filedata)=>{
-//     if(!err){
-//         console.log('======callback read...======')
-//         console.log(filedata)
+const fs = require("fs");
+const fsPromises = fs.promises;
+// 1. 文件读取
+// fs.readFile('./hello.tex', 'utf-8', (err, data)=>{
+//     if(err){
+//         console.log("err===>", err)
+//     }else{
+//         console.log("data===>", data)
 //     }
 // })
+// 2. promise + async/await
+// async function readFile(file) {
+//   const data = await fs.readFile(file, "utf-8");
+//   try {
+//     console.log("data===>", data);
+//   } catch (error) {
+//     console.log("err===>", err);
+//   }
+// }
+// readFile("./hello2.tex");
 
-// 异步读取
-// fs.promises.readFile('./path/index.js', 'utf-8').then(res=>{
-//     console.log('=====promises read=====')
-//     console.log(res)
-// })
-
-// fs.writeFile('./newTest.js', 'hello newTest!')
-
-// 文件信息
-// const fileInfo = fs.statfs('./index.js')
-// console.log('fileInfo===>', fileInfo)
-
-// 追加输出
-// fs.appendFileSync('index.js', 'console.log("hello word2!")')
-
-// 目录操作
-const files = fs.readdirSync('path')
-console.log(files)
-
-fs.mkdirSync('test-dir/a/b/c/d', {recursive: true})
+// 3. 文件写入
+// fs.writeFile("hello.tex", "你好 NodeJS", (err) => {
+//   if (err) {
+//     console.log("写入失败：", err);
+//   } else {
+//     console.log("写入成功");
+//   }
+// });
+// 4. promise + async/await 写入
+async function writeFile() {
+  try {
+    await fsPromises.writeFile("hello2.tex", "nihao NodeJS");
+    console.log("---写入成功----");
+  } catch (error) {
+    console.log("---写入失败----");
+  }
+}
+writeFile()
