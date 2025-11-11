@@ -1,0 +1,166 @@
+/* 响应式设计增强 */
+
+/* 大屏幕设备 */
+@media (min-width: 1200px) {
+  .container {
+    max-width: 800px;
+    padding: 50px;
+  }
+  
+  h1 {
+    font-size: 3rem;
+  }
+  
+  #reply {
+    font-size: 1.2rem;
+    padding: 30px;
+  }
+}
+
+/* 平板设备 */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .container {
+    max-width: 700px;
+    padding: 40px;
+  }
+  
+  h1 {
+    font-size: 2.2rem;
+  }
+}
+
+/* 手机设备 - 横屏 */
+@media (max-width: 768px) and (orientation: landscape) {
+  body {
+    padding: 10px;
+  }
+  
+  .container {
+    padding: 20px;
+    max-width: 100%;
+  }
+  
+  h1 {
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+  }
+  
+  #reply {
+    padding: 15px;
+    min-height: 80px;
+  }
+}
+
+/* 手机设备 - 竖屏 */
+@media (max-width: 480px) {
+  body {
+    padding: 5px;
+  }
+  
+  .container {
+    padding: 20px 15px;
+    border-radius: 15px;
+  }
+  
+  h1 {
+    font-size: 1.6rem;
+    margin-bottom: 20px;
+  }
+  
+  #reply {
+    padding: 15px;
+    font-size: 0.95rem;
+    min-height: 100px;
+  }
+  
+  .btn {
+    padding: 10px 25px;
+    font-size: 0.9rem;
+  }
+}
+
+/* 超小屏幕设备 */
+@media (max-width: 320px) {
+  .container {
+    padding: 15px 10px;
+  }
+  
+  h1 {
+    font-size: 1.4rem;
+  }
+  
+  #reply {
+    padding: 12px;
+    font-size: 0.9rem;
+  }
+}
+
+/* 高分辨率屏幕 */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .container {
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  }
+  
+  .container {
+    background: rgba(30, 30, 30, 0.95);
+    color: #e0e0e0;
+  }
+  
+  #reply {
+    background: #2a2a2a;
+    border-color: #444;
+    color: #e0e0e0;
+  }
+  
+  #reply:hover {
+    border-color: #667eea;
+  }
+  
+  #reply.success {
+    background: #1e4d2b;
+    border-color: #28a745;
+    color: #d4edda;
+  }
+  
+  #reply.error {
+    background: #4d1e1e;
+    border-color: #dc3545;
+    color: #f8d7da;
+  }
+}
+
+/* 减少动画（用户偏好） */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  
+  .container {
+    background: white;
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+  
+  #reply {
+    border: 1px solid #ccc;
+    background: white;
+  }
+}
+

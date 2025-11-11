@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Coze AI智能助手 - 与Coze AI对话" />
+    <title>Coze AI智能助手</title>
+
+    <!-- CSS文件 -->
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/responsive.css" />
+
+    <!-- 字体图标 -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>
+          <i class="fas fa-robot"></i>
+          Coze AI智能助手
+        </h1>
+        <p class="subtitle">与Coze AI进行智能对话</p>
+      </div>
+      
+      <div class="chat-container">
+        <div class="status-bar">
+          <span class="status-indicator loading" id="statusIndicator"></span>
+          <span id="statusText">正在思考中...</span>
+        </div>
+        
+        <div id="reply" class="reply-box">
+          <div class="typing-indicator">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+        
+        <div class="actions">
+          <button class="btn" id="askBtn" onclick="askQuestion()">
+            <i class="fas fa-paper-plane"></i>
+            重新提问
+          </button>
+          <button class="btn secondary" id="copyBtn" onclick="copyResponse()" style="display: none;">
+            <i class="fas fa-copy"></i>
+            复制回答
+          </button>
+        </div>
+      </div>
+      
+      <div class="footer">
+        <p>Powered by <strong>Coze</strong> AI</p>
+      </div>
+    </div>
+
+    <!-- JavaScript文件 -->
+    <script type="module" src="/js/main.js"></script>
+  </body>
+</html>
