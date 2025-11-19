@@ -4,6 +4,7 @@ export interface Message {
   content: string;
   sender: 'user' | 'ai';
   timestamp: number;
+  debug_reasoning?: null | string; // 推理摘要
 }
 
 // 聊天上下文类型
