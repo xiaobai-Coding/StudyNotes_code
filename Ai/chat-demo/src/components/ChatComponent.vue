@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue';
-import type { Message } from '../types/chat';
+import type { Message, FunctionCall, ToolResponse } from '../types/chat';
 import { getAIResponse, shouldAskFollowUp, getFollowUpSuggestion, config, type AIResponse } from '../services/aiService';
 
 // 使用环境变量中的应用标题
@@ -50,13 +50,16 @@ const generateId = (): string => {
 };
 
 // 添加消息到聊天列表
-const addMessage = (content: string, sender: 'user' | 'ai', debugReasoning?: string | null) => {
+const addMessage = (content: string, sender: 'user' | 'ai' | 'tool', debugReasoning?: string | null, type?: 'text' | 'function_call' | 'tool_response', functionCall?: FunctionCall, toolResponse?: ToolResponse) => {
   const newMessage: Message = {
     id: generateId(),
     content,
     sender,
     timestamp: Date.now(),
-    debug_reasoning: debugReasoning || undefined
+    debug_reasoning: debugReasoning || undefined,
+    type,
+    function_call: functionCall,
+    tool_response: toolResponse
   };
   messages.value.push(newMessage);
   sessionStorage.setItem('chatMessages', JSON.stringify(messages.value));
@@ -162,11 +165,29 @@ sendMessage = async () => {
     hasError.value = false;
     currentError = null;
 
-    const historyMessages = messages.value.map(msg => ({
-      role: msg.sender === 'user' ? 'user' : 'assistant',
-      content: msg.content
-    }));
-    // 调用AI API获取回复
+    // 构建历史消息，支持function_call和tool_response类型
+    const historyMessages = messages.value.map(msg => {
+      if (msg.type === 'function_call') {
+        return {
+          role: 'assistant',
+          content: null,
+          function_call: msg.function_call
+        };
+      } else if (msg.type === 'tool_response') {
+        return {
+          role: 'tool',
+          content: JSON.stringify(msg.tool_response),
+          name: msg.tool_response?.function_name
+        };
+      } else {
+        return {
+          role: msg.sender === 'user' ? 'user' : 'assistant',
+          content: msg.content
+        };
+      }
+    });
+    
+    // 调用AI API获取回复（内部已处理工具调用和第二次请求）
     const aiResponse: AIResponse = await getAIResponse([...historyMessages, { content: trimmedInput, role: 'user' }], (char) => {
       tempAIResponse.value += char;
     }, showReasoning.value);
@@ -185,8 +206,21 @@ sendMessage = async () => {
     // 保存错误信息，但不显示给用户
     currentError = error instanceof Error ? error : new Error('未知错误');
     hasError.value = true;
+    
+    // 在控制台显示详细的错误信息
+    if (error instanceof Error) {
+      console.error('[Chat] 错误详情:', error.message);
+      if (error.message.includes('网络请求失败') || error.message.includes('Failed to fetch')) {
+        console.error('[Chat] 请检查：');
+        console.error('1. 网络连接是否正常');
+        console.error('2. API端点是否正确配置');
+        console.error('3. API密钥是否有效');
+        console.error('4. 是否存在CORS问题');
+      }
+    }
+    
     // 添加友好的错误提示消息
-    addMessage('抱歉，我暂时无法回复。请使用重试按钮重新发送请求。', 'ai');
+    addMessage('抱歉，我暂时无法回复。请使用重试按钮重新发送请求。如果问题持续，请检查控制台的错误信息。', 'ai');
   } finally {
     if (debug) {
       console.log('[Chat] AI回复完成');
@@ -301,10 +335,30 @@ onUnmounted(() => {
     <div id="chat-container" class="messages-container">
       <div v-for="message in messages" :key="message.id" :class="['message', message.sender]">
         <div class="message-avatar">
-          {{ message.sender === 'user' ? '👤' : '🤖' }}
+          {{ message.sender === 'user' ? '👤' : message.sender === 'tool' ? '🔧' : '🤖' }}
         </div>
         <div class="message-content">
-          <p>{{ message.content }}</p>
+          <!-- 正常文本消息 -->
+          <p v-if="message.type !== 'function_call' && message.type !== 'tool_response'">{{ message.content }}</p>
+
+          <!-- Function Call 消息 -->
+          <div v-else-if="message.type === 'function_call'" class="function-call">
+            <div class="function-name">调用工具: {{ message.function_call?.name }}</div>
+            <div class="function-params">
+              <div v-if="message.function_call?.parameters" class="param-item"
+                v-for="(value, key) in message.function_call.parameters" :key="key">
+                <span class="param-key">{{ key }}:</span>
+                <span class="param-value">{{ value }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tool Response 消息 -->
+          <div v-else-if="message.type === 'tool_response'" class="tool-response">
+            <div class="tool-name">{{ message.tool_response?.function_name }} 结果:</div>
+            <div class="tool-result">{{ message.tool_response?.result }}</div>
+          </div>
+
           <!-- 显示推理内容（当开关打开且有推理内容时） -->
           <div v-if="showReasoning && message.sender === 'ai' && message.debug_reasoning" class="debug-reasoning">
             <div class="reasoning-label">推理过程:</div>
@@ -524,6 +578,13 @@ onUnmounted(() => {
   animation: fadeIn 0.3s ease-in-out;
 }
 
+/* 工具消息样式 */
+.message.tool {
+  align-self: flex-start;
+  border-left: 3px solid #4a9eff;
+  padding-left: 0.75rem;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -626,6 +687,67 @@ onUnmounted(() => {
   opacity: 0.7;
   margin-top: 0.5rem;
   display: block;
+}
+
+/* Function Call 样式 */
+.function-call {
+  background-color: #e8f5e9;
+  border-radius: 12px;
+  padding: 1rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.function-name {
+  font-weight: bold;
+  color: #2e7d32;
+  margin-bottom: 0.5rem;
+}
+
+.function-params {
+  margin-left: 1.5rem;
+}
+
+.param-item {
+  margin: 0.25rem 0;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.param-key {
+  color: #1565c0;
+  font-weight: 500;
+  margin-right: 0.5rem;
+}
+
+.param-value {
+  color: #d32f2f;
+  background-color: #fff;
+  padding: 0.125rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* Tool Response 样式 */
+.tool-response {
+  background-color: #fff3e0;
+  border-radius: 12px;
+  padding: 1rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+}
+
+.tool-name {
+  font-weight: bold;
+  color: #e65100;
+  margin-bottom: 0.5rem;
+}
+
+.tool-result {
+  background-color: #fff;
+  padding: 0.75rem;
+  border-radius: 8px;
+  color: #2e7d32;
+  font-weight: 500;
 }
 
 .message.user .message-time {

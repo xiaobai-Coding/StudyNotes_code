@@ -1,7 +1,59 @@
 // DeepSeek AI服务实现
 // 使用真实的DeepSeek API进行对话
 
-import { Message } from "../types/chat";
+import { Message, FunctionDefinition, CalculatorParams } from "../types/chat";
+
+// 定义计算器工具函数
+export const calculator = (params: CalculatorParams): number => {
+  const { num1, num2, operation } = params;
+
+  switch (operation) {
+    case "add":
+      return num1 + num2;
+    case "subtract":
+      return num1 - num2;
+    case "multiply":
+      return num1 * num2;
+    case "divide":
+      if (num2 === 0) {
+        throw new Error("除数不能为零");
+      }
+      return num1 / num2;
+    default:
+      throw new Error(`不支持的操作: ${operation}`);
+  }
+};
+
+// 定义计算器函数的描述
+export const calculatorFunction: FunctionDefinition = {
+  name: "calculator",
+  description: "用于进行四则运算的计算器工具",
+  parameters: {
+    type: "object",
+    properties: {
+      num1: {
+        type: "number",
+        description: "第一个操作数"
+      },
+      num2: {
+        type: "number",
+        description: "第二个操作数"
+      },
+      operation: {
+        type: "string",
+        description: "运算操作类型",
+        enum: ["add", "subtract", "multiply", "divide"]
+      }
+    },
+    required: ["num1", "num2", "operation"]
+  }
+};
+
+// 所有可用的工具函数
+// availableFunctions已在下方重新定义，带有类型签名
+
+// 所有可用的函数定义
+export const functionDefinitions: FunctionDefinition[] = [calculatorFunction];
 
 // 从环境变量中读取配置
 const getConfig = () => ({
@@ -34,12 +86,17 @@ export const simulateTyping = async (
 };
 
 // 简化的API调用函数
-const callDeepSeekAPI = async (userMessages: any, showDebugReasoning: boolean): Promise<string> => {
+const callDeepSeekAPI = async (
+  userMessages: any,
+  showDebugReasoning: boolean
+): Promise<any> => {
   console.log("[AI Service] 开始API调用...");
   console.log("[AI Service] API密钥:", config.apiKey ? "已设置" : "未设置");
   console.log("[AI Service] API基础URL:", config.apiBaseUrl);
   console.log("[AI Service] 用户消息:", userMessages);
-
+  const debugFieldLine = showDebugReasoning
+  ? `"debug_reasoning": "请输出一段不超过2行的简短推理摘要"`
+  : `"debug_reasoning": null`;
   // 确保API密钥存在
   if (!config.apiKey) {
     throw new Error("未配置API密钥，请检查.env.local文件");
@@ -52,30 +109,46 @@ const callDeepSeekAPI = async (userMessages: any, showDebugReasoning: boolean): 
     const requestBody = {
       model: config.model,
       messages: [
-        ...userMessages,
         {
           role: "system",
           content: `
 你是一个严谨的历史学家，拥有丰富的历史知识。能解答历史相关问题。并能根据问题生成历史事件的摘要。并能够以生动的语言解释。你必须要用著名说书人单田芳的风格。
 你要把你的思考过程输出在回复中（但不要太长）。
+当用户提出需要进行数学计算的问题时，你应该使用calculator工具来完成计算。
 1. 在回复用户问题前，先简短的输出你的思考过程，再输出用户问题的回答。
 2. 禁止胡编乱造、编造不存在的历史事件和人物。
 3. 只能以历史文献和资料为基础。
 4. 如果没有相关资料文献，优先回答暂无相关资料。
-5. 最终输出必须为 JSON：
+5. 对于需要计算的问题，请使用calculator工具。
+6. 如果需要调用函数进行计算，那么直接将计算及过返回，不要输出任何其他内容,
+7. 最终输出必须为 JSON：
 {
   "judgement": "has_evidence | no_evidence",
   "result": null | "string",
   "reason": "string",
   "confidence": 0-1,
-  "debug_reasoning": ${ showDebugReasoning } ? "短推理摘要(最多2行)" : null
+  ${debugFieldLine}
 }
 `
+        },
+        ...userMessages
+      ],
+      tools: [
+        {
+          type: "function",
+          function: calculatorFunction
         }
       ],
+      tool_choice: "auto",
       temperature: config.temperature, // 控制回复的随机性，
       max_tokens: 300 // 限制回复的最大长度
     };
+
+    // 验证functions参数格式
+    console.log(
+      "[AI Service] Functions参数:",
+      JSON.stringify(functionDefinitions, null, 2)
+    );
 
     console.log("[AI Service] 准备发送fetch请求...");
 
@@ -103,16 +176,35 @@ const callDeepSeekAPI = async (userMessages: any, showDebugReasoning: boolean): 
     const data = await response.json();
     console.log("[AI Service] 响应数据:", JSON.stringify(data, null, 2));
 
-    // 提取AI回复
-    if (data.choices && data.choices.length > 0 && data.choices[0].message) {
-      const aiResponse = data.choices[0].message.content;
-      console.log("[AI Service] 成功获取AI回复，长度:", aiResponse.length);
-      return aiResponse;
+    // 检查响应格式
+    if (
+      !data.choices ||
+      data.choices.length === 0 ||
+      !data.choices[0].message
+    ) {
+      throw new Error("API响应格式不正确，未找到有效回复");
     }
 
-    throw new Error("API响应格式不正确，未找到有效回复");
-  } catch (error) {
+    // 返回完整的响应对象，以便getAIResponse可以检查function_call
+    return data;
+  } catch (error: any) {
     console.error("[AI Service] API调用异常:", error);
+    
+    // 提供更详细的错误信息
+    if (error instanceof TypeError && error.message === "Failed to fetch") {
+      // 网络错误或CORS错误
+      const detailedError = new Error(
+        `网络请求失败。可能的原因：\n` +
+        `1. 网络连接问题，请检查网络连接\n` +
+        `2. API端点无法访问: ${config.apiBaseUrl}\n` +
+        `3. CORS跨域问题，请检查API配置\n` +
+        `4. API密钥无效或已过期\n` +
+        `原始错误: ${error.message}`
+      );
+      throw detailedError;
+    }
+    
+    // 如果是其他错误，直接抛出
     throw error;
   }
 };
@@ -121,7 +213,104 @@ const callDeepSeekAPI = async (userMessages: any, showDebugReasoning: boolean): 
 export interface AIResponse {
   content: string;
   debug_reasoning?: string | null;
+  function_call?: {
+    name: string;
+    parameters: Record<string, any>;
+  };
 }
+
+// 为availableFunctions添加索引签名
+export const availableFunctions: Record<string, (params: any) => any> = {
+  calculator
+};
+
+// 处理工具调用响应，执行工具并将结果发送回模型生成最终回复
+export const handleToolResponse = async (
+  userMessages: any[],
+  assistantMessage: any,
+  toolCalls: any[],
+  showDebugReasoning: boolean = false
+): Promise<AIResponse> => {
+  console.log(`[AI Service] 处理工具调用，工具数量: ${toolCalls.length}`);
+
+  try {
+    // 执行所有工具调用
+    const toolResults = [];
+    for (const toolCall of toolCalls) {
+      const functionCall = toolCall.function;
+      const functionName = functionCall.name;
+      const functionArgs = JSON.parse(functionCall.arguments || "{}");
+
+      console.log(`[AI Service] 执行工具: ${functionName}`, functionArgs);
+
+      if (availableFunctions[functionName]) {
+        const functionToCall = availableFunctions[functionName];
+        const result = functionToCall(functionArgs);
+
+        console.log(`[AI Service] 工具 ${functionName} 执行结果: ${result}`);
+
+        toolResults.push({
+          tool_call_id: toolCall.id,
+          role: "tool",
+          name: functionName,
+          content: JSON.stringify(result)
+        });
+      } else {
+        throw new Error(`未找到工具函数: ${functionName}`);
+      }
+    }
+
+    // 构建包含工具调用和结果的完整消息历史
+    // 注意：userMessages 不应该包含 system message，因为 callDeepSeekAPI 会在内部添加
+    const messagesWithToolResults = [
+      ...userMessages,
+      {
+        role: "assistant",
+        content: assistantMessage.content || null,
+        tool_calls: toolCalls
+      },
+      ...toolResults
+    ];
+
+    console.log("[AI Service] 准备发送第二次API请求，包含工具结果");
+    console.log("[AI Service] 消息历史:", JSON.stringify(messagesWithToolResults, null, 2));
+
+    // 第二次API调用：将工具结果发送给模型，让模型生成最终回复
+    const data = await callDeepSeekAPI(messagesWithToolResults, showDebugReasoning);
+
+    // 处理模型的最终回复
+    if (data.choices && data.choices[0].message) {
+      const apiResponse = data.choices[0].message.content;
+      console.log("[AI Service] 第二次请求最终响应apiResponse:", apiResponse);
+      // 尝试解析JSON格式的响应
+      let fullResponse = apiResponse;
+      let debugReasoning = null;
+
+      try {
+        const jsonResponse = JSON.parse(apiResponse);
+        fullResponse = jsonResponse.result || apiResponse;
+        debugReasoning = jsonResponse.debug_reasoning || null;
+
+        console.log("[AI Service] 成功解析JSON响应:", {
+          result: fullResponse,
+          debug_reasoning: debugReasoning
+        });
+      } catch (e) {
+        console.log("[AI Service] 响应不是JSON格式，使用原始内容");
+      }
+
+      return {
+        content: fullResponse,
+        debug_reasoning: debugReasoning
+      };
+    }
+
+    throw new Error("API响应格式不正确，未找到有效回复");
+  } catch (error: any) {
+    console.error(`[AI Service] 工具调用处理失败: ${error}`);
+    throw error;
+  }
+};
 
 export const getAIResponse = async (
   userMessages: any,
@@ -131,43 +320,82 @@ export const getAIResponse = async (
   console.log("[AI Service] getAIResponse被调用");
 
   try {
-    // 直接调用API
-    const apiResponse = await callDeepSeekAPI(userMessages, showDebugReasoning);
-    
-    // 尝试解析JSON格式的响应
-    let fullResponse = apiResponse;
-    let debugReasoning = null;
-    
-    try {
-      // 尝试解析JSON响应
-      const jsonResponse = JSON.parse(apiResponse);
-      // 提取主内容
-      fullResponse = jsonResponse.result || apiResponse;
-      // 提取推理内容
-      debugReasoning = jsonResponse.debug_reasoning || null;
-      
-      console.log("[AI Service] 成功解析JSON响应:", {
-        result: fullResponse,
-        debug_reasoning: debugReasoning
+    // 调用API获取响应
+    const data = await callDeepSeekAPI(userMessages, showDebugReasoning);
+
+    // 检查是否有tool_calls
+    if (
+      data.choices &&
+      data.choices[0].message &&
+      data.choices[0].message.tool_calls
+    ) {
+      const toolCalls = data.choices[0].message.tool_calls; // 工具调用数组
+      const assistantMessage = data.choices[0].message;
+      console.log("[AI Service] 收到tool_calls:", toolCalls);
+
+      // 第二次请求：执行工具并将结果发送给模型，让模型生成最终回复
+      const finalResponse = await handleToolResponse(
+        userMessages,
+        assistantMessage,
+        toolCalls,
+        showDebugReasoning
+      );
+      console.log("[AI Service] 模型最终回复:", finalResponse);
+
+      // 添加一些延迟以模拟处理过程
+      await delay(500);
+
+      // 模拟打字效果
+      await simulateTyping(finalResponse.content, (char) => {
+        onPartialResponse(char);
       });
-    } catch (e) {
-      // 如果不是有效的JSON，就使用原始响应
-      console.log("[AI Service] 响应不是JSON格式，使用原始内容");
+
+      // 返回最终回复
+      return finalResponse;
     }
 
-    // 添加一些延迟以模拟处理过程
-    await delay(500);
+    // 处理正常文本响应
+    if (data.choices && data.choices[0].message) {
+      const apiResponse = data.choices[0].message.content;
+      console.log("[AI Service] 原始响应apiResponse:", apiResponse);
+      // 尝试解析JSON格式的响应
+      let fullResponse = apiResponse;
+      let debugReasoning = null;
 
-    // 模拟打字效果
-    await simulateTyping(fullResponse, (char) => {
-      onPartialResponse(char);
-    });
+      try {
+        // 尝试解析JSON响应
+        const jsonResponse = JSON.parse(apiResponse);
+        console.log("[AI Service] 成功解析JSON响应jsonResponse:", jsonResponse);
+        // 提取主内容
+        fullResponse = jsonResponse.result || apiResponse;
+        // 提取推理内容
+        debugReasoning = jsonResponse.debug_reasoning || null;
 
-    // 返回响应对象，包含内容和推理信息
-    return {
-      content: fullResponse,
-      debug_reasoning: debugReasoning
-    };
+        console.log("[AI Service] 成功解析JSON响应:", {
+          result: fullResponse,
+          debug_reasoning: debugReasoning
+        });
+      } catch (e) {
+        // 如果不是有效的JSON，就使用原始响应
+        console.log("[AI Service] 响应不是JSON格式，使用原始内容");
+      }
+
+      // 添加一些延迟以模拟处理过程
+      await delay(500);
+
+      // 模拟打字效果
+      await simulateTyping(fullResponse, (char) => {
+        onPartialResponse(char);
+      });
+
+      // 返回响应对象，包含内容和推理信息
+      return {
+        content: fullResponse,
+        debug_reasoning: debugReasoning
+      };
+    }
+
+    throw new Error("API响应格式不正确，未找到有效回复");
   } catch (error) {
     console.error("[AI Service] 获取AI回复失败:", error);
     // 直接抛出错误，让调用方处理
