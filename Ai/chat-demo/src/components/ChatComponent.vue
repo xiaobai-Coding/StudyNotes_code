@@ -13,6 +13,8 @@ const debug = config.debug || true;
 const messages = ref<Message[]>([]);
 // 用户输入内容
 const userInput = ref('');
+// 底部输入框 DOM 引用，用于在模型回复结束后重新聚焦
+const inputRef = ref<HTMLTextAreaElement | null>(null);
 // 是否正在生成AI回复
 const isTyping = ref(false);
 // 临时存储AI正在输入的内容
@@ -43,7 +45,47 @@ let clearChat: () => void;
 let handleKeyPress: (event: KeyboardEvent) => void;
 let sendMessage: () => Promise<void>;
 let retryLastMessage: () => Promise<void>;
-
+const debugFieldLine = showReasoning.value
+  ? `"debug_reasoning": "请输出一段不超过2行的简短推理摘要"`
+  : `"debug_reasoning": null`;
+// 系统提示词
+const SYSTEM_PROMPT = `
+你是一个严谨的历史学家，拥有丰富的历史知识。能解答历史相关问题。并能根据问题生成历史事件的摘要。并能够以生动的语言解释。你必须要用著名说书人单田芳的风格。
+【重要】关于工具调用的规则：
+1. **只有在用户明确要求进行数学计算（如：计算、加减乘除、算数等）时，才使用calculator工具**
+2. **以下情况不要调用calculator工具：**
+   - 历史事件中的年份、日期（如"公元前221年"、"1945年"等）
+   - 历史人物的年龄、在位时间等历史数据
+   - 历史事件的数量、人数等描述性数字
+   - 任何不需要进行数学运算的问题
+3. **只有当用户明确要求计算（如"计算123+456"、"帮我算一下"等）时，才调用calculator工具**
+【重要】关于所有输出格式要求（不管是工具调用还是正常文本输出）：
+1. 在回复用户问题前，先简短的输出你的思考过程（在内部思考即可，不要输出给用户），再输出用户问题的回答。
+2. 禁止胡编乱造、编造不存在的历史事件和人物。
+3. 只能以历史文献和资料为基础。
+4. 如果没有相关资料文献，优先回答暂无相关资料。
+5. 对于需要计算的问题，请使用calculator工具。
+6. 如果需要调用函数进行计算，那么直接将计算及过返回，不要输出任何其他内容,
+7. 最终输出必须为 JSON：
+{
+  "judgement": "has_evidence | no_evidence",
+  "result": null | "string",
+  "reason": "string",
+  "confidence": 0-1,
+ "debug_reasoning": "请输出一段不超过2行的简短推理摘要"
+}
+`;
+// 初始化系统提示词（用于API调用，不添加到messages中）
+const createInitialMessages = () => ([
+  { 
+  role: "system", 
+  content: SYSTEM_PROMPT,
+  id: generateId(),
+  sender: 'system',
+  timestamp: Date.now(),
+  type: 'text'
+}
+]);
 // 生成唯一消息ID
 const generateId = (): string => {
   return `${sessionId}-msg-${messageCounter++}`;
@@ -62,8 +104,10 @@ const addMessage = (content: string, sender: 'user' | 'ai' | 'tool', debugReason
     tool_response: toolResponse
   };
   messages.value.push(newMessage);
-  sessionStorage.setItem('chatMessages', JSON.stringify(messages.value));
-  console.log('[Chat] 添加消息:', messages.value);
+ 
+  // 使用深拷贝避免响应式代理对象序列化问题
+  const messagesToSave = JSON.parse(JSON.stringify(messages.value));
+  sessionStorage.setItem('chatMessages', JSON.stringify(messagesToSave));
 
   // 自动滚动到底部，但只有当用户当前视图接近底部时
   nextTick(() => {
@@ -125,15 +169,21 @@ const watchMessages = () => {
   });
 }
 
-
-
-
+// 让底部输入框聚焦的工具函数
+const focusInput = () => {
+  // 使用 nextTick 确保在 DOM 更新完成后再尝试聚焦
+  nextTick(() => {
+    if (inputRef.value) {
+      inputRef.value.focus();
+    }
+  });
+};
 
 // 清空聊天
 clearChat = () => {
-  messages.value = [];
+  messages.value = createInitialMessages() as Message[];
   messageCounter = 0;
-  sessionStorage.setItem('chatMessages', JSON.stringify(messages.value));
+  sessionStorage.removeItem('chatMessages');
 };
 
 // 处理键盘输入事件
@@ -156,7 +206,10 @@ sendMessage = async () => {
   // 开始生成AI回复
   isTyping.value = true;
   tempAIResponse.value = '';
-
+  // 滚动到底部
+  nextTick(() => {
+      scrollToBottom();
+    });
   try {
     if (debug) {
       console.log('[Chat] 调用getAIResponse函数');
@@ -164,7 +217,6 @@ sendMessage = async () => {
     // 重置错误状态
     hasError.value = false;
     currentError = null;
-
     // 构建历史消息，支持function_call和tool_response类型
     const historyMessages = messages.value.map(msg => {
       if (msg.type === 'function_call') {
@@ -179,6 +231,11 @@ sendMessage = async () => {
           content: JSON.stringify(msg.tool_response),
           name: msg.tool_response?.function_name
         };
+      } else if (msg.sender === 'system') {
+        return {
+          role: 'system',
+          content: msg.content
+        };
       } else {
         return {
           role: msg.sender === 'user' ? 'user' : 'assistant',
@@ -186,9 +243,9 @@ sendMessage = async () => {
         };
       }
     });
-    
+
     // 调用AI API获取回复（内部已处理工具调用和第二次请求）
-    const aiResponse: AIResponse = await getAIResponse([...historyMessages, { content: trimmedInput, role: 'user' }], (char) => {
+    const aiResponse: AIResponse = await getAIResponse(historyMessages, (char) => {
       tempAIResponse.value += char;
     }, showReasoning.value);
 
@@ -206,7 +263,7 @@ sendMessage = async () => {
     // 保存错误信息，但不显示给用户
     currentError = error instanceof Error ? error : new Error('未知错误');
     hasError.value = true;
-    
+
     // 在控制台显示详细的错误信息
     if (error instanceof Error) {
       console.error('[Chat] 错误详情:', error.message);
@@ -218,7 +275,7 @@ sendMessage = async () => {
         console.error('4. 是否存在CORS问题');
       }
     }
-    
+
     // 添加友好的错误提示消息
     addMessage('抱歉，我暂时无法回复。请使用重试按钮重新发送请求。如果问题持续，请检查控制台的错误信息。', 'ai');
   } finally {
@@ -227,6 +284,8 @@ sendMessage = async () => {
     }
     isTyping.value = false;
     tempAIResponse.value = '';
+    // 模型回复完成后，让输入框重新获得焦点，方便继续输入
+    focusInput();
   }
 };
 
@@ -284,24 +343,37 @@ retryLastMessage = async () => {
     }
     isTyping.value = false;
     tempAIResponse.value = '';
+    // 重试流程结束后，同样让输入框重新获得焦点
+    focusInput();
   }
 };
 
-// 组件挂载后，添加欢迎消息
+// 组件挂载后，加载聊天记录
 onMounted(() => {
   // 从sessionStorage加载聊天记录
   const savedMessages = sessionStorage.getItem('chatMessages');
+  console.log('[Chat] 加载聊天记录:', savedMessages);
   if (savedMessages) {
-    messages.value = JSON.parse(savedMessages);
+    try {
+      messages.value = JSON.parse(savedMessages);
+    } catch (e) {
+      console.error('[Chat] 加载聊天记录失败:', e);
+      messages.value = createInitialMessages() as Message[];
+    }
+  } else {
+    messages.value = createInitialMessages() as Message[];
   }
-
   // 添加滚动事件监听器
   const chatContainer = document.getElementById('chat-container');
   if (chatContainer) {
     chatContainer.addEventListener('scroll', handleScroll);
     // 初始滚动到底部
-    scrollToBottom();
+    nextTick(() => {
+      scrollToBottom();
+    });
   }
+  // 初次挂载时，让输入框自动获得焦点
+  focusInput();
 });
 
 // 组件卸载前移除事件监听器
@@ -334,6 +406,7 @@ onUnmounted(() => {
     <!-- 聊天消息区域 -->
     <div id="chat-container" class="messages-container">
       <div v-for="message in messages" :key="message.id" :class="['message', message.sender]">
+       <template v-if="message.sender !== 'system'">
         <div class="message-avatar">
           {{ message.sender === 'user' ? '👤' : message.sender === 'tool' ? '🔧' : '🤖' }}
         </div>
@@ -344,8 +417,8 @@ onUnmounted(() => {
           <!-- Function Call 消息 -->
           <div v-else-if="message.type === 'function_call'" class="function-call">
             <div class="function-name">调用工具: {{ message.function_call?.name }}</div>
-            <div class="function-params">
-              <div v-if="message.function_call?.parameters" class="param-item"
+            <div class="function-params" v-if="message.function_call?.parameters">
+              <div class="param-item"
                 v-for="(value, key) in message.function_call.parameters" :key="key">
                 <span class="param-key">{{ key }}:</span>
                 <span class="param-value">{{ value }}</span>
@@ -368,6 +441,7 @@ onUnmounted(() => {
             {{ new Date(message.timestamp).toLocaleTimeString() }}
           </span>
         </div>
+       </template>
       </div>
 
       <!-- AI打字中指示器 -->
@@ -394,8 +468,14 @@ onUnmounted(() => {
 
     <!-- 输入区域 -->
     <div class="input-container">
-      <textarea v-model="userInput" @keypress="handleKeyPress" placeholder="输入你的问题..." :disabled="isTyping"
-        class="chat-input"></textarea>
+      <textarea
+        ref="inputRef"
+        v-model="userInput"
+        @keypress="handleKeyPress"
+        placeholder="输入你的问题..."
+        :disabled="isTyping"
+        class="chat-input"
+      ></textarea>
       <button @click="sendMessage" :disabled="!userInput.trim() || isTyping" class="send-button">
         {{ isTyping ? '发送中...' : '发送' }}
       </button>

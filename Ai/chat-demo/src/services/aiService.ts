@@ -3,6 +3,8 @@
 
 import { Message, FunctionDefinition, CalculatorParams } from "../types/chat";
 
+
+
 // 定义计算器工具函数
 export const calculator = (params: CalculatorParams): number => {
   const { num1, num2, operation } = params;
@@ -27,21 +29,21 @@ export const calculator = (params: CalculatorParams): number => {
 // 定义计算器函数的描述
 export const calculatorFunction: FunctionDefinition = {
   name: "calculator",
-  description: "用于进行四则运算的计算器工具",
+  description: "用于进行数学四则运算的计算器工具。仅在用户明确要求进行数学计算（如加减乘除运算）时使用。注意：历史事件中的年份、日期、数量等描述性数字不需要使用此工具进行计算。",
   parameters: {
     type: "object",
     properties: {
       num1: {
         type: "number",
-        description: "第一个操作数"
+        description: "第一个操作数（必须是需要参与计算的数字）"
       },
       num2: {
         type: "number",
-        description: "第二个操作数"
+        description: "第二个操作数（必须是需要参与计算的数字）"
       },
       operation: {
         type: "string",
-        description: "运算操作类型",
+        description: "运算操作类型：add(加法)、subtract(减法)、multiply(乘法)、divide(除法)",
         enum: ["add", "subtract", "multiply", "divide"]
       }
     },
@@ -76,7 +78,7 @@ export const simulateTyping = async (
   text: string,
   onCharacterAdd: (char: string) => void
 ): Promise<void> => {
-  console.log("[AI Service] 开始模拟打字效果，文本长度:", text.length);
+  // console.log("[AI Service] 开始模拟打字效果，文本长度:", text.length);
 
   const chars = text.split("");
   for (const char of chars) {
@@ -85,54 +87,36 @@ export const simulateTyping = async (
   }
 };
 
+// 裁剪模型消息 只保留最近 6 轮对话
+function trimModelMessages(modelMessages: any[]) {
+  const system = modelMessages[0];
+  const rest = modelMessages.slice(1);
+  // 如果消息数量大于6，则裁剪只保留最近三轮对话
+  if (rest.length > 6) { 
+    const trimmed = rest.slice(-6); // slice 传递负数时，表示从后往前数
+    modelMessages = [system, ...trimmed];
+    return modelMessages;
+  }
+  return [system, ...rest];  // 如果消息数量小于6，则不裁剪
+}
+
 // 简化的API调用函数
 const callDeepSeekAPI = async (
   userMessages: any,
   showDebugReasoning: boolean
 ): Promise<any> => {
-  console.log("[AI Service] 开始API调用...");
-  console.log("[AI Service] API密钥:", config.apiKey ? "已设置" : "未设置");
-  console.log("[AI Service] API基础URL:", config.apiBaseUrl);
-  console.log("[AI Service] 用户消息:", userMessages);
-  const debugFieldLine = showDebugReasoning
-  ? `"debug_reasoning": "请输出一段不超过2行的简短推理摘要"`
-  : `"debug_reasoning": null`;
   // 确保API密钥存在
   if (!config.apiKey) {
     throw new Error("未配置API密钥，请检查.env.local文件");
   }
-
+  // 传给模型的消息需要裁剪
+  let modelMessages = trimModelMessages(userMessages) // 过滤掉工具调用消息
   try {
     const endpoint = `${config.apiBaseUrl}/chat/completions`;
-    console.log("[AI Service] API端点:", endpoint);
 
     const requestBody = {
       model: config.model,
-      messages: [
-        {
-          role: "system",
-          content: `
-你是一个严谨的历史学家，拥有丰富的历史知识。能解答历史相关问题。并能根据问题生成历史事件的摘要。并能够以生动的语言解释。你必须要用著名说书人单田芳的风格。
-你要把你的思考过程输出在回复中（但不要太长）。
-当用户提出需要进行数学计算的问题时，你应该使用calculator工具来完成计算。
-1. 在回复用户问题前，先简短的输出你的思考过程，再输出用户问题的回答。
-2. 禁止胡编乱造、编造不存在的历史事件和人物。
-3. 只能以历史文献和资料为基础。
-4. 如果没有相关资料文献，优先回答暂无相关资料。
-5. 对于需要计算的问题，请使用calculator工具。
-6. 如果需要调用函数进行计算，那么直接将计算及过返回，不要输出任何其他内容,
-7. 最终输出必须为 JSON：
-{
-  "judgement": "has_evidence | no_evidence",
-  "result": null | "string",
-  "reason": "string",
-  "confidence": 0-1,
-  ${debugFieldLine}
-}
-`
-        },
-        ...userMessages
-      ],
+      messages: modelMessages, // 传给模型的消息需要裁剪
       tools: [
         {
           type: "function",
@@ -288,7 +272,7 @@ export const handleToolResponse = async (
 
       try {
         const jsonResponse = JSON.parse(apiResponse);
-        fullResponse = jsonResponse.result || apiResponse;
+        fullResponse = jsonResponse.result || jsonResponse.reason;
         debugReasoning = jsonResponse.debug_reasoning || null;
 
         console.log("[AI Service] 成功解析JSON响应:", {
@@ -331,7 +315,9 @@ export const getAIResponse = async (
     ) {
       const toolCalls = data.choices[0].message.tool_calls; // 工具调用数组
       const assistantMessage = data.choices[0].message;
-      console.log("[AI Service] 收到tool_calls:", toolCalls);
+      console.log("[AI Service] ⚠️ 检测到工具调用请求");
+      console.log("[AI Service] 工具调用详情:", JSON.stringify(toolCalls, null, 2));
+      console.log("[AI Service] 用户消息:", JSON.stringify(userMessages[userMessages.length - 1], null, 2));
 
       // 第二次请求：执行工具并将结果发送给模型，让模型生成最终回复
       const finalResponse = await handleToolResponse(
@@ -354,9 +340,10 @@ export const getAIResponse = async (
       return finalResponse;
     }
 
-    // 处理正常文本响应
+    // 处理正常文本响应（没有工具调用）
     if (data.choices && data.choices[0].message) {
       const apiResponse = data.choices[0].message.content;
+      console.log("[AI Service] ✅ 正常文本响应（未调用工具）");
       console.log("[AI Service] 原始响应apiResponse:", apiResponse);
       // 尝试解析JSON格式的响应
       let fullResponse = apiResponse;
@@ -367,7 +354,7 @@ export const getAIResponse = async (
         const jsonResponse = JSON.parse(apiResponse);
         console.log("[AI Service] 成功解析JSON响应jsonResponse:", jsonResponse);
         // 提取主内容
-        fullResponse = jsonResponse.result || apiResponse;
+        fullResponse = jsonResponse.result || jsonResponse.reason;
         // 提取推理内容
         debugReasoning = jsonResponse.debug_reasoning || null;
 

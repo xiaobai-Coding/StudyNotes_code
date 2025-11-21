@@ -2,7 +2,7 @@
 export interface Message {
   id: string;
   content: string;
-  sender: 'user' | 'ai' | 'tool';
+  sender: 'user' | 'ai' | 'tool' | 'system';
   timestamp: number;
   debug_reasoning?: null | string; // 推理摘要
   type?: 'text' | 'function_call' | 'tool_response';
