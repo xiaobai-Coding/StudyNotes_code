@@ -991,8 +991,9 @@ onUnmounted(() => {
 /* 滚动到底部按钮 */
 .scroll-to-bottom-button {
   position: fixed;
-  bottom: 80px;
-  right: 20px;
+  bottom: 130px;
+  left: 50%;
+  transform: translateX(-50%) scale(1);
   min-width: 50px;
   height: 50px;
   border-radius: 25px;
@@ -1011,23 +1012,24 @@ onUnmounted(() => {
   gap: 0.5rem;
   padding: 0 1rem;
   animation: pulse 2s infinite;
+  opacity: 0.92;
 }
 
 /* 按钮脉冲动画，提示有新消息 */
 @keyframes pulse {
   0% {
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    transform: scale(1);
+    transform: translate(-50%, 0) scale(1);
   }
 
   50% {
     box-shadow: 0 4px 20px rgba(102, 126, 234, 0.6);
-    transform: scale(1.05);
+    transform: translate(-50%, 0) scale(1.05);
   }
 
   100% {
     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    transform: scale(1);
+    transform: translate(-50%, 0) scale(1);
   }
 }
 
@@ -1045,14 +1047,14 @@ onUnmounted(() => {
 }
 
 .scroll-to-bottom-button:hover {
-  transform: translateY(-3px) scale(1.05);
   box-shadow: 0 6px 16px rgba(102, 126, 234, 0.6);
   animation: none;
   /* 悬停时停止脉冲动画 */
+  opacity: 1;
 }
 
 .scroll-to-bottom-button:active {
-  transform: translateY(0) scale(0.95);
+  transform: translate(-50%, 0);
 }
 
 /* 响应式设计 */
@@ -1099,6 +1101,7 @@ onUnmounted(() => {
     height: 40px;
     font-size: 0.875rem;
     padding: 0 0.75rem;
+    bottom: 110px;
   }
 
   .button-icon {
