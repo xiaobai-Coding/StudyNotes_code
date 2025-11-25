@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, nextTick, computed } from 'vue';
 import type { Message, FunctionCall, ToolResponse } from '../types/chat';
 import { getAIResponse, shouldAskFollowUp, getFollowUpSuggestion, config, type AIResponse } from '../services/aiService';
-
+import SSEDebugPanel from './SSEDebugPanel.vue';
 // 使用环境变量中的应用标题
 const appTitle = config.appTitle || 'AI 聊天助手';
 
@@ -72,7 +72,7 @@ const SYSTEM_PROMPT = `
   "result": null | "string",
   "reason": "string",
   "confidence": 0-1,
- "debug_reasoning": "请输出一段不超过2行的简短推理摘要"
+  "debug": "请输出一段不超过2行的简短推理摘要"
 }
 `;
 // 初始化系统提示词（用于API调用，不添加到messages中）
@@ -89,6 +89,34 @@ const createInitialMessages = () => ([
 // 生成唯一消息ID
 const generateId = (): string => {
   return `${sessionId}-msg-${messageCounter++}`;
+};
+
+// 更新指定消息内容（用于流式输出）
+const updateMessage = (
+  id: string,
+  newContentOrFn: string | ((prev: string) => string),
+  debugReasoning?: string | null
+) => {
+  // 
+  const index = messages.value.findIndex(msg => msg.id === id);
+  if (index === -1) return;
+
+  const old = messages.value[index];
+
+  const newContent = 
+    typeof newContentOrFn === "function"
+      ? newContentOrFn(old.content)
+      : newContentOrFn;
+
+  // 更新消息
+  messages.value[index] = {
+    ...old,
+    content: newContent,
+    debug_reasoning: debugReasoning ?? old.debug_reasoning
+  };
+
+  // 同步 sessionStorage
+  sessionStorage.setItem("chatMessages", JSON.stringify(messages.value));
 };
 
 // 添加消息到聊天列表
@@ -200,94 +228,76 @@ sendMessage = async () => {
   if (!trimmedInput || isTyping.value) return;
 
   // 添加用户消息
-  addMessage(trimmedInput, 'user');
-  userInput.value = '';
+  addMessage(trimmedInput, "user");
+  userInput.value = "";
 
-  // 开始生成AI回复
-  isTyping.value = true;
-  tempAIResponse.value = '';
+  isTyping.value = true; 
+
+  // 创建 AI 占位符消息（content 为空）
+  const aiMessageId = generateId();
+  messages.value.push({
+    id: aiMessageId,
+    content: "",
+    sender: "ai",
+    timestamp: Date.now(),
+    type: "text"
+  });
+
+  sessionStorage.setItem("chatMessages", JSON.stringify(messages.value));
+
   // 滚动到底部
-  nextTick(() => {
-      scrollToBottom();
-    });
+  nextTick(scrollToBottom);
+
   try {
-    if (debug) {
-      console.log('[Chat] 调用getAIResponse函数');
-    }
-    // 重置错误状态
-    hasError.value = false;
-    currentError = null;
-    // 构建历史消息，支持function_call和tool_response类型
+    // 构建模型消息（包含 system、user、ai）
     const historyMessages = messages.value.map(msg => {
-      if (msg.type === 'function_call') {
+      if (msg.sender === "system") {
+        return { role: "system", content: msg.content };
+      }
+      if (msg.type === "function_call") {
         return {
-          role: 'assistant',
+          role: "assistant",
           content: null,
           function_call: msg.function_call
         };
-      } else if (msg.type === 'tool_response') {
+      }
+      if (msg.type === "tool_response") {
         return {
-          role: 'tool',
+          role: "tool",
           content: JSON.stringify(msg.tool_response),
           name: msg.tool_response?.function_name
         };
-      } else if (msg.sender === 'system') {
-        return {
-          role: 'system',
-          content: msg.content
-        };
-      } else {
-        return {
-          role: msg.sender === 'user' ? 'user' : 'assistant',
-          content: msg.content
-        };
       }
+      return {
+        role: msg.sender === "user" ? "user" : "assistant",
+        content: msg.content
+      };
     });
 
-    // 调用AI API获取回复（内部已处理工具调用和第二次请求）
-    const aiResponse: AIResponse = await getAIResponse(historyMessages, (char) => {
-      tempAIResponse.value += char;
-    }, showReasoning.value);
+    // 调用 AI （流式）
+    const aiResponse = await getAIResponse(
+      historyMessages,
+      (chunk) => {
+        updateMessage(aiMessageId, (prev) => prev + chunk);
+      },
+      showReasoning.value
+    );
 
-    // 添加完整的AI回复，包含推理信息
-    addMessage(aiResponse.content, 'ai', aiResponse.debug_reasoning);
+    // 流式结束后：覆盖成最终 JSON result
+    updateMessage(
+      aiMessageId,
+      aiResponse.content,
+      aiResponse.debug_reasoning ?? null
+    );
 
-    // 检查是否需要追问
-    if (shouldAskFollowUp(trimmedInput)) {
-      // setTimeout(() => {
-      //   addMessage(getFollowUpSuggestion(trimmedInput), 'ai');
-      // }, 1000);
-    }
-  } catch (error) {
-    console.error('[Chat] 生成AI回复时出错:', error);
-    // 保存错误信息，但不显示给用户
-    currentError = error instanceof Error ? error : new Error('未知错误');
-    hasError.value = true;
-
-    // 在控制台显示详细的错误信息
-    if (error instanceof Error) {
-      console.error('[Chat] 错误详情:', error.message);
-      if (error.message.includes('网络请求失败') || error.message.includes('Failed to fetch')) {
-        console.error('[Chat] 请检查：');
-        console.error('1. 网络连接是否正常');
-        console.error('2. API端点是否正确配置');
-        console.error('3. API密钥是否有效');
-        console.error('4. 是否存在CORS问题');
-      }
-    }
-
-    // 添加友好的错误提示消息
-    addMessage('抱歉，我暂时无法回复。请使用重试按钮重新发送请求。如果问题持续，请检查控制台的错误信息。', 'ai');
+  } catch (e) {
+    updateMessage(aiMessageId, "抱歉，我暂时无法回复。");
   } finally {
-    if (debug) {
-      console.log('[Chat] AI回复完成');
-    }
     isTyping.value = false;
-    tempAIResponse.value = '';
-    // 模型回复完成后，让输入框重新获得焦点，方便继续输入
     focusInput();
   }
 };
+
 
 // 重试发送最后一条用户消息
 retryLastMessage = async () => {
@@ -352,7 +362,7 @@ retryLastMessage = async () => {
 onMounted(() => {
   // 从sessionStorage加载聊天记录
   const savedMessages = sessionStorage.getItem('chatMessages');
-  console.log('[Chat] 加载聊天记录:', savedMessages);
+  // console.log('[Chat] 加载聊天记录:', savedMessages);
   if (savedMessages) {
     try {
       messages.value = JSON.parse(savedMessages);
@@ -445,7 +455,7 @@ onUnmounted(() => {
       </div>
 
       <!-- AI打字中指示器 -->
-      <div v-if="isTyping" class="message ai">
+      <!-- <div v-if="isTyping" class="message ai">
         <div class="message-avatar">🤖</div>
         <div class="message-content">
           <p v-if="tempAIResponse">
@@ -455,7 +465,7 @@ onUnmounted(() => {
             思考中<span class="typing-dots"><span>.</span><span>.</span><span>.</span></span>
           </p>
         </div>
-      </div>
+      </div> -->
     </div>
 
     <!-- 错误状态显示和重试按钮 -->
@@ -488,6 +498,8 @@ onUnmounted(() => {
       <span class="button-badge">新消息</span>
     </button>
   </div>
+  <!-- debuger -->
+  <SSEDebugPanel style="z-index: 2000;" />
 </template>
 
 <style scoped>

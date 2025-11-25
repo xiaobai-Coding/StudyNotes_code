@@ -50,3 +50,7 @@ export interface ChatContext {
   addMessage: (message: Omit<Message, 'id' | 'timestamp'>) => void;
   clearChat: () => void;
 }
+
+export interface StreamCompletionResult {
+  
+}
