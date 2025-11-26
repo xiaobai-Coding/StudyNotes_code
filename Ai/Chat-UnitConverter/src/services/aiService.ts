@@ -126,6 +126,7 @@ const parseModelContent = (rawContent: string): ParsedModelContent => {
 
 const hexRegex = /^[0-9a-fA-F]+$/;
 
+// 创建结果流式器
 const createResultStreamer = (onPartialResponse?: (chunk: string) => void) => {
   const RESULT_KEY = '"result"';
   type State =
@@ -343,7 +344,7 @@ const callDeepSeekAPI = async (
           function: calculatorFunction
         }
       ],
-      tool_choice: "auto",
+      tool_choice: "auto", // 自动选择使用工具还是模型生成回复
       temperature: config.temperature, // 控制回复的随机性，
       max_tokens: 300 // 限制回复的最大长度
     };
@@ -457,6 +458,13 @@ const streamDeepSeekAPI = async (
   const requestBody = {
     model: config.model,
     messages: modelMessages,
+    tools: [
+      {
+        type: "function",
+        function: calculatorFunction
+      }
+    ],
+    tool_choice: "auto",
     temperature: config.temperature,
     max_tokens: 300,
     stream: true
@@ -493,6 +501,18 @@ const streamDeepSeekAPI = async (
   // 用来收集 reasoning_content（如果模型有单独的推理流）
   let aggregatedDebug = "";
 
+  // 用来收集工具调用的增量信息
+  const toolCallBuffers: Record<
+    number,
+    {
+      id?: string;
+      type?: string;
+      function?: { name?: string; arguments: string };
+    }
+  > = {};
+
+  let hasToolCall = false; // 是否触发了工具调用
+
   // 🔥 用你之前写好的 result 字段状态机，只对 `"result": "..."` 内部字符调用 onPartialResponse
   const resultStreamer = createResultStreamer(onPartialResponse);
 
@@ -523,6 +543,7 @@ const streamDeepSeekAPI = async (
       try {
         const parsed = JSON.parse(dataPayload);
         const delta = parsed.choices?.[0]?.delta;
+        console.log("delta:", delta);
         if (!delta) continue;
 
         // 1️⃣ content：是 JSON 字符串的碎片
@@ -535,6 +556,49 @@ const streamDeepSeekAPI = async (
           //    内部只会在解析到 "result": "..." 里的字符时调用 onPartialResponse
           resultStreamer.handleChunk(chunk);
         }
+        // 2️⃣ tool_calls：流式函数调用
+        if (Array.isArray(delta.tool_calls)) {
+          hasToolCall = true; // 触发了工具调用
+
+          // 遍历工具调用
+          for (const toolCallDelta of delta.tool_calls) {
+            const index =
+              typeof toolCallDelta.index === "number"
+                ? toolCallDelta.index
+                : 0;
+            // 如果工具调用缓冲区中没有这个索引，则创建一个
+            if (!toolCallBuffers[index]) {
+              toolCallBuffers[index] = {
+                id: toolCallDelta.id,
+                type: toolCallDelta.type,
+                function: { name: "", arguments: "" }
+              };
+            }
+
+            const buffer = toolCallBuffers[index]; // 获取工具调用缓冲区
+            // 如果工具调用ID存在，则更新工具调用ID
+            if (toolCallDelta.id) {
+              buffer.id = toolCallDelta.id;
+            }
+            // 如果工具调用类型存在，则更新工具调用类型
+            if (toolCallDelta.type) {
+              buffer.type = toolCallDelta.type;
+            }
+
+            // 如果工具调用函数存在，则更新工具调用函数
+            if (toolCallDelta.function) {
+              buffer.function = buffer.function || { name: "", arguments: "" };
+
+              if (toolCallDelta.function.name) {
+                buffer.function.name = toolCallDelta.function.name;
+              }
+              // 如果工具调用函数参数存在，则更新工具调用函数参数
+              if (toolCallDelta.function.arguments) {
+                buffer.function.arguments += toolCallDelta.function.arguments;
+              }
+            }
+          }
+        }
         // 2️⃣ reasoning_content：推理流（可选）
         if (typeof delta.debug === "string") {
           aggregatedDebug += delta.debug;
@@ -544,12 +608,38 @@ const streamDeepSeekAPI = async (
       }
     }
   }
+  console.log("fullJsonText:", fullJsonText);
   // 告诉 resultStreamer：流已经结束，可以把尾巴处理完（比如遗留的代理对）
   resultStreamer.finalize();
 
   // ---- 解析最终 JSON ----
   let finalContent = "";
   let debug_reasoning: string | null = null;
+  const aggregatedToolCalls = Object.entries(toolCallBuffers)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .map(([index, call]) => ({
+      id: call.id || `tool_call_${index}`,
+      type: call.type || "function",
+      function: {
+        name: call.function?.name || "",
+        arguments: call.function?.arguments || ""
+      }
+    }));
+
+  // 如果有工具调用，直接返回工具调用信息，不再尝试解析 result
+  if (hasToolCall && aggregatedToolCalls.length > 0) {
+    return {
+      message: {
+        role: "assistant",
+        content: null,
+        tool_calls: aggregatedToolCalls
+      },
+      content: "",
+      debug_reasoning: aggregatedDebug || null,
+      tool_calls: aggregatedToolCalls
+    };
+  }
+
   try {
     if (fullJsonText.trim()) {
       const json = JSON.parse(fullJsonText);
@@ -683,10 +773,6 @@ export const handleToolResponse = async (
     ];
 
     console.log("[AI Service] 准备发送第二次API请求，包含工具结果");
-    console.log(
-      "[AI Service] 消息历史:",
-      JSON.stringify(messagesWithToolResults, null, 2)
-    );
 
     if (stream) {
       const streamResult = await streamDeepSeekAPI(
@@ -777,14 +863,37 @@ const getAIResponseWithStreaming = async (
   onPartialResponse: (partialResponse: string) => void,
   showDebugReasoning: boolean
 ): Promise<AIResponse> => {
-  // 这里只做“普通回答”的流式输出
   const streamResult = await streamDeepSeekAPI(
     userMessages,
     showDebugReasoning,
     onPartialResponse
   );
   console.log("streamResult:", streamResult);
-  // 暂时不做工具调用的流式处理，真正需要函数调用时可以走非流式 fallback
+  // 如果模型触发了工具调用，执行工具后再流式返回最终结果
+  if (streamResult.tool_calls?.length) {
+    const assistantMessage = {
+      role: "assistant",
+      content: streamResult.content || null,
+      tool_calls: streamResult.tool_calls
+    };
+
+    const finalResponse = await handleToolResponse(
+      userMessages,
+      assistantMessage,
+      streamResult.tool_calls,
+      {
+        showDebugReasoning,
+        stream: true,
+        onPartialResponse
+      }
+    );
+
+    return {
+      content: finalResponse.content,
+      debug_reasoning: finalResponse.debug_reasoning
+    };
+  }
+
   return {
     content: streamResult.content,
     debug_reasoning: streamResult.debug_reasoning
